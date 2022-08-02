@@ -21,7 +21,7 @@ import (
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcwallet/snacl"
+	"github.com/btcsuite/btcwallet/crypto"
 	"github.com/btcsuite/btcwallet/walletdb"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
@@ -48,10 +48,10 @@ func (c *failingCryptoKey) Decrypt(in []byte) ([]byte, error) {
 }
 
 // failingSecretKeyGen is a SecretKeyGenerator that always returns
-// snacl.ErrDecryptFailed.
+// crypto.ErrDecryptFailed.
 func failingSecretKeyGen(passphrase *[]byte,
-	config *ScryptOptions) (*snacl.SecretKey, error) {
-	return nil, snacl.ErrDecryptFailed
+	config *ScryptOptions) (*crypto.SecretKey, error) {
+	return nil, crypto.ErrDecryptFailed
 }
 
 // testContext is used to store context information about a running test which
@@ -1299,7 +1299,7 @@ func testChangePassphrase(tc *testContext) bool {
 
 	// Ensure the public passphrase was successfully changed. We do this by
 	// being able to re-derive the public key with the new passphrase.
-	secretKey := snacl.SecretKey{Key: &snacl.CryptoKey{}}
+	secretKey := crypto.SecretKey{Key: &crypto.CryptoKey{}}
 	secretKey.Parameters = tc.rootManager.masterKeyPub.Parameters
 	if err := secretKey.DeriveKey(&pubPassphrase2); err != nil {
 		tc.t.Errorf("%s: passphrase does not match", testName)

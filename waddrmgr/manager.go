@@ -14,8 +14,8 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcwallet/crypto"
 	"github.com/btcsuite/btcwallet/internal/zero"
-	"github.com/btcsuite/btcwallet/snacl"
 	"github.com/btcsuite/btcwallet/walletdb"
 	"github.com/lightninglabs/neutrino/cache/lru"
 )
@@ -235,12 +235,12 @@ type unlockDeriveInfo struct {
 // SecretKeyGenerator is the function signature of a method that can generate
 // secret keys for the address manager.
 type SecretKeyGenerator func(
-	passphrase *[]byte, config *ScryptOptions) (*snacl.SecretKey, error)
+	passphrase *[]byte, config *ScryptOptions) (*crypto.SecretKey, error)
 
 // defaultNewSecretKey returns a new secret key.  See newSecretKey.
 func defaultNewSecretKey(passphrase *[]byte,
-	config *ScryptOptions) (*snacl.SecretKey, error) {
-	return snacl.NewSecretKey(passphrase, config.N, config.R, config.P)
+	config *ScryptOptions) (*crypto.SecretKey, error) {
+	return crypto.NewSecretKey(passphrase, config.N, config.R, config.P)
 }
 
 var (
@@ -266,14 +266,14 @@ func SetSecretKeyGen(keyGen SecretKeyGenerator) SecretKeyGenerator {
 
 // newSecretKey generates a new secret key using the active secretKeyGen.
 func newSecretKey(passphrase *[]byte,
-	config *ScryptOptions) (*snacl.SecretKey, error) {
+	config *ScryptOptions) (*crypto.SecretKey, error) {
 
 	secretKeyGenMtx.RLock()
 	defer secretKeyGenMtx.RUnlock()
 	return secretKeyGen(passphrase, config)
 }
 
-// EncryptorDecryptor provides an abstraction on top of snacl.CryptoKey so that
+// EncryptorDecryptor provides an abstraction on top of crypto.CryptoKey so that
 // our tests can use dependency injection to force the behaviour they need.
 type EncryptorDecryptor interface {
 	Encrypt(in []byte) ([]byte, error)
@@ -283,9 +283,9 @@ type EncryptorDecryptor interface {
 	Zero()
 }
 
-// cryptoKey extends snacl.CryptoKey to implement EncryptorDecryptor.
+// cryptoKey extends crypto.CryptoKey to implement EncryptorDecryptor.
 type cryptoKey struct {
-	snacl.CryptoKey
+	crypto.CryptoKey
 }
 
 // Bytes returns a copy of this crypto key's byte slice.
@@ -300,7 +300,7 @@ func (ck *cryptoKey) CopyBytes(from []byte) {
 
 // defaultNewCryptoKey returns a new CryptoKey.  See newCryptoKey.
 func defaultNewCryptoKey() (EncryptorDecryptor, error) {
-	key, err := snacl.GenerateCryptoKey()
+	key, err := crypto.GenerateCryptoKey()
 	if err != nil {
 		return nil, err
 	}
@@ -362,8 +362,8 @@ type Manager struct {
 	//
 	// The underlying master private key will be zeroed when the address
 	// manager is locked.
-	masterKeyPub  *snacl.SecretKey
-	masterKeyPriv *snacl.SecretKey
+	masterKeyPub  *crypto.SecretKey
+	masterKeyPriv *crypto.SecretKey
 
 	// cryptoKeyPub is the key used to encrypt public extended keys and
 	// addresses.
@@ -898,7 +898,7 @@ func (m *Manager) ChangePassphrase(ns walletdb.ReadWriteBucket, oldPassphrase,
 	// flag to ensure the current state is not altered.  The temp key is
 	// cleared when done to avoid leaving a copy in memory.
 	var keyName string
-	secretKey := snacl.SecretKey{Key: &snacl.CryptoKey{}}
+	secretKey := crypto.SecretKey{Key: &crypto.CryptoKey{}}
 	if private {
 		keyName = "private"
 		secretKey.Parameters = m.masterKeyPriv.Parameters
@@ -907,7 +907,7 @@ func (m *Manager) ChangePassphrase(ns walletdb.ReadWriteBucket, oldPassphrase,
 		secretKey.Parameters = m.masterKeyPub.Parameters
 	}
 	if err := secretKey.DeriveKey(&oldPassphrase); err != nil {
-		if err == snacl.ErrInvalidPassword {
+		if err == crypto.ErrInvalidPassword {
 			str := fmt.Sprintf("invalid passphrase for %s master "+
 				"key", keyName)
 			return managerError(ErrWrongPassphrase, str, nil)
@@ -1198,7 +1198,7 @@ func (m *Manager) Unlock(ns walletdb.ReadBucket, passphrase []byte) error {
 	// Derive the master private key using the provided passphrase.
 	if err := m.masterKeyPriv.DeriveKey(&passphrase); err != nil {
 		m.lock()
-		if err == snacl.ErrInvalidPassword {
+		if err == crypto.ErrInvalidPassword {
 			str := "invalid passphrase for master private key"
 			return managerError(ErrWrongPassphrase, str, nil)
 		}
@@ -1388,8 +1388,8 @@ func (m *Manager) Decrypt(keyType CryptoKeyType, in []byte) ([]byte, error) {
 }
 
 // newManager returns a new locked address manager with the given parameters.
-func newManager(chainParams *chaincfg.Params, masterKeyPub *snacl.SecretKey,
-	masterKeyPriv *snacl.SecretKey, cryptoKeyPub EncryptorDecryptor,
+func newManager(chainParams *chaincfg.Params, masterKeyPub *crypto.SecretKey,
+	masterKeyPriv *crypto.SecretKey, cryptoKeyPub EncryptorDecryptor,
 	cryptoKeyPrivEncrypted, cryptoKeyScriptEncrypted []byte, syncInfo *syncState,
 	birthday time.Time, privPassphraseSalt [saltSize]byte,
 	scopedManagers map[KeyScope]*ScopedKeyManager, watchingOnly bool) *Manager {
@@ -1570,7 +1570,7 @@ func loadManager(ns walletdb.ReadBucket, pubPassphrase []byte,
 
 	// When not a watching-only manager, set the master private key params,
 	// but don't derive it now since the manager starts off locked.
-	var masterKeyPriv snacl.SecretKey
+	var masterKeyPriv crypto.SecretKey
 	if !watchingOnly {
 		err := masterKeyPriv.Unmarshal(masterKeyPrivParams)
 		if err != nil {
@@ -1581,7 +1581,7 @@ func loadManager(ns walletdb.ReadBucket, pubPassphrase []byte,
 
 	// Derive the master public key using the serialized params and provided
 	// passphrase.
-	var masterKeyPub snacl.SecretKey
+	var masterKeyPub crypto.SecretKey
 	if err := masterKeyPub.Unmarshal(masterKeyPubParams); err != nil {
 		str := "failed to unmarshal master public key"
 		return nil, managerError(ErrCrypto, str, err)
@@ -1592,7 +1592,7 @@ func loadManager(ns walletdb.ReadBucket, pubPassphrase []byte,
 	}
 
 	// Use the master public key to decrypt the crypto public key.
-	cryptoKeyPub := &cryptoKey{snacl.CryptoKey{}}
+	cryptoKeyPub := &cryptoKey{crypto.CryptoKey{}}
 	cryptoKeyPubCT, err := masterKeyPub.Decrypt(cryptoKeyPubEnc)
 	if err != nil {
 		str := "failed to decrypt crypto public key"
@@ -1875,7 +1875,7 @@ func Create(ns walletdb.ReadWriteBucket, rootKey *hdkeychain.ExtendedKey,
 	pubParams := masterKeyPub.Marshal()
 
 	var privParams []byte
-	var masterKeyPriv *snacl.SecretKey
+	var masterKeyPriv *crypto.SecretKey
 	var cryptoKeyPrivEnc []byte
 	var cryptoKeyScriptEnc []byte
 	if !isWatchingOnly {
