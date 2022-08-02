@@ -11,6 +11,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcwallet/internal/types"
 	"github.com/lightningnetwork/lnd/ticker"
 )
 
@@ -343,7 +344,7 @@ func (c *BitcoindConn) NewBitcoindClient() *BitcoindClient {
 		watchedOutPoints: make(map[wire.OutPoint]struct{}),
 		watchedTxs:       make(map[chainhash.Hash]struct{}),
 
-		notificationQueue: NewConcurrentQueue(20),
+		notificationQueue: types.NewConcurrentQueue(20),
 		txNtfns:           make(chan *wire.MsgTx, 1000),
 		blockNtfns:        make(chan *wire.MsgBlock, 100),
 

@@ -14,6 +14,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/btcsuite/btcwallet/internal/types"
 	"github.com/btcsuite/btcwallet/waddrmgr"
 	"github.com/btcsuite/btcwallet/wtxmgr"
 )
@@ -89,7 +90,7 @@ type BitcoindClient struct {
 	// can fully invalidate one waiting to be processed. For example,
 	// BlockConnected notifications for greater block heights can remove the
 	// need to process earlier notifications still waiting to be processed.
-	notificationQueue *ConcurrentQueue
+	notificationQueue *types.ConcurrentQueue
 
 	// txNtfns is a channel through which transaction events will be
 	// retrieved from the backing bitcoind connection, either via ZMQ or
