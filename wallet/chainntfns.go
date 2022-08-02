@@ -12,7 +12,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcwallet/chain"
+	"github.com/btcsuite/btcwallet/btcclient"
 	"github.com/btcsuite/btcwallet/waddrmgr"
 	"github.com/btcsuite/btcwallet/walletdb"
 	"github.com/btcsuite/btcwallet/wtxmgr"
@@ -34,7 +34,7 @@ func (w *Wallet) handleChainNotifications() {
 		return
 	}
 
-	catchUpHashes := func(w *Wallet, client chain.Interface,
+	catchUpHashes := func(w *Wallet, client btcclient.Interface,
 		height int32) error {
 		// TODO(aakselrod): There's a race condition here, which
 		// happens when a reorg occurs between the
@@ -94,7 +94,7 @@ func (w *Wallet) handleChainNotifications() {
 			var notificationName string
 			var err error
 			switch n := n.(type) {
-			case chain.ClientConnected:
+			case btcclient.ClientConnected:
 				// Before attempting to sync with our backend,
 				// we'll make sure that our birthday block has
 				// been set correctly to potentially prevent
@@ -117,22 +117,22 @@ func (w *Wallet) handleChainNotifications() {
 					panic(fmt.Errorf("unable to synchronize "+
 						"wallet to chain: %v", err))
 				}
-			case chain.BlockConnected:
+			case btcclient.BlockConnected:
 				err = walletdb.Update(w.db, func(tx walletdb.ReadWriteTx) error {
 					return w.connectBlock(tx, wtxmgr.BlockMeta(n))
 				})
 				notificationName = "block connected"
-			case chain.BlockDisconnected:
+			case btcclient.BlockDisconnected:
 				err = walletdb.Update(w.db, func(tx walletdb.ReadWriteTx) error {
 					return w.disconnectBlock(tx, wtxmgr.BlockMeta(n))
 				})
 				notificationName = "block disconnected"
-			case chain.RelevantTx:
+			case btcclient.RelevantTx:
 				err = walletdb.Update(w.db, func(tx walletdb.ReadWriteTx) error {
 					return w.addRelevantTx(tx, n.TxRecord, n.Block)
 				})
 				notificationName = "relevant transaction"
-			case chain.FilteredBlockConnected:
+			case btcclient.FilteredBlockConnected:
 				// Atomically update for the whole block.
 				if len(n.RelevantTxs) > 0 {
 					err = walletdb.Update(w.db, func(
@@ -152,7 +152,7 @@ func (w *Wallet) handleChainNotifications() {
 
 			// The following require some database maintenance, but also
 			// need to be reported to the wallet's rescan goroutine.
-			case *chain.RescanProgress:
+			case *btcclient.RescanProgress:
 				err = catchUpHashes(w, chainClient, n.Height)
 				notificationName = "rescan progress"
 				select {
@@ -160,7 +160,7 @@ func (w *Wallet) handleChainNotifications() {
 				case <-w.quitChan():
 					return
 				}
-			case *chain.RescanFinished:
+			case *btcclient.RescanFinished:
 				err = catchUpHashes(w, chainClient, n.Height)
 				notificationName = "rescan finished"
 				w.SetChainSynced(true)
@@ -182,7 +182,7 @@ func (w *Wallet) handleChainNotifications() {
 					log.Debugf("Received block connected "+
 						"notification for height %v "+
 						"while rescanning",
-						n.(chain.BlockConnected).Height)
+						n.(btcclient.BlockConnected).Height)
 					continue
 				}
 

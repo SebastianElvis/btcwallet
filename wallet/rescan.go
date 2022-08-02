@@ -8,7 +8,7 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcwallet/chain"
+	"github.com/btcsuite/btcwallet/btcclient"
 	"github.com/btcsuite/btcwallet/waddrmgr"
 	"github.com/btcsuite/btcwallet/wtxmgr"
 )
@@ -17,14 +17,14 @@ import (
 // set of wallet addresses.
 type RescanProgressMsg struct {
 	Addresses    []btcutil.Address
-	Notification *chain.RescanProgress
+	Notification *btcclient.RescanProgress
 }
 
 // RescanFinishedMsg reports the addresses that were rescanned when a
 // rescanfinished message was received rescanning a batch of addresses.
 type RescanFinishedMsg struct {
 	Addresses    []btcutil.Address
-	Notification *chain.RescanFinished
+	Notification *btcclient.RescanFinished
 }
 
 // RescanJob is a job to be processed by the RescanManager.  The job includes
@@ -137,7 +137,7 @@ func (w *Wallet) rescanBatchHandler() {
 
 		case n := <-w.rescanNotifications:
 			switch n := n.(type) {
-			case *chain.RescanProgress:
+			case *btcclient.RescanProgress:
 				if curBatch == nil {
 					log.Warnf("Received rescan progress " +
 						"notification but no rescan " +
@@ -156,7 +156,7 @@ func (w *Wallet) rescanBatchHandler() {
 					return
 				}
 
-			case *chain.RescanFinished:
+			case *btcclient.RescanFinished:
 				if curBatch == nil {
 					log.Warnf("Received rescan finished " +
 						"notification but no rescan " +

@@ -25,7 +25,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcwallet/chain"
+	"github.com/btcsuite/btcwallet/btcclient"
 	"github.com/btcsuite/btcwallet/waddrmgr"
 	"github.com/btcsuite/btcwallet/wallet/txauthor"
 	"github.com/btcsuite/btcwallet/wallet/txrules"
@@ -106,7 +106,7 @@ type Wallet struct {
 	Manager *waddrmgr.Manager
 	TxStore *wtxmgr.Store
 
-	chainClient        chain.Interface
+	chainClient        btcclient.Interface
 	chainClientLock    sync.Mutex
 	chainClientSynced  bool
 	chainClientSyncMtx sync.Mutex
@@ -176,7 +176,7 @@ func (w *Wallet) Start() {
 //
 // This method is unstable and will be removed when all syncing logic is moved
 // outside of the wallet package.
-func (w *Wallet) SynchronizeRPC(chainClient chain.Interface) {
+func (w *Wallet) SynchronizeRPC(chainClient btcclient.Interface) {
 	w.quitMu.Lock()
 	select {
 	case <-w.quit:
@@ -198,9 +198,9 @@ func (w *Wallet) SynchronizeRPC(chainClient chain.Interface) {
 	// If the chain client is a NeutrinoClient instance, set a birthday so
 	// we don't download all the filters as we go.
 	switch cc := chainClient.(type) {
-	case *chain.NeutrinoClient:
+	case *btcclient.NeutrinoClient:
 		cc.SetStartTime(w.Manager.Birthday())
-	case *chain.BitcoindClient:
+	case *btcclient.BitcoindClient:
 		cc.SetBirthday(w.Manager.Birthday())
 	}
 	w.chainClientLock.Unlock()
@@ -220,7 +220,7 @@ func (w *Wallet) SynchronizeRPC(chainClient chain.Interface) {
 // consensus RPC server is set.  This function and all functions that call it
 // are unstable and will need to be moved when the syncing code is moved out of
 // the wallet.
-func (w *Wallet) requireChainClient() (chain.Interface, error) {
+func (w *Wallet) requireChainClient() (btcclient.Interface, error) {
 	w.chainClientLock.Lock()
 	chainClient := w.chainClient
 	w.chainClientLock.Unlock()
@@ -235,7 +235,7 @@ func (w *Wallet) requireChainClient() (chain.Interface, error) {
 //
 // This function is unstable and will be removed once sync logic is moved out of
 // the wallet.
-func (w *Wallet) ChainClient() chain.Interface {
+func (w *Wallet) ChainClient() btcclient.Interface {
 	w.chainClientLock.Lock()
 	chainClient := w.chainClient
 	w.chainClientLock.Unlock()
@@ -556,7 +556,7 @@ func (w *Wallet) isDevEnv() bool {
 
 // waitUntilBackendSynced blocks until the chain backend considers itself
 // "current".
-func (w *Wallet) waitUntilBackendSynced(chainClient chain.Interface) error {
+func (w *Wallet) waitUntilBackendSynced(chainClient btcclient.Interface) error {
 	// We'll poll every second to determine if our chain considers itself
 	// "current".
 	t := time.NewTicker(time.Second)
@@ -665,7 +665,7 @@ type recoverySyncer struct {
 // recovery attempts to recover any unspent outputs that pay to any of our
 // addresses starting from our birthday, or the wallet's tip (if higher), which
 // would indicate resuming a recovery after a restart.
-func (w *Wallet) recovery(chainClient chain.Interface,
+func (w *Wallet) recovery(chainClient btcclient.Interface,
 	birthdayBlock *waddrmgr.BlockStamp) error {
 
 	log.Infof("RECOVERY MODE ENABLED -- rescanning for used addresses "+
@@ -805,7 +805,7 @@ func (w *Wallet) recovery(chainClient chain.Interface,
 //
 // TODO(conner): parallelize/pipeline/cache intermediate network requests
 func (w *Wallet) recoverScopedAddresses(
-	chainClient chain.Interface,
+	chainClient btcclient.Interface,
 	tx walletdb.ReadWriteTx,
 	ns walletdb.ReadWriteBucket,
 	batch []wtxmgr.BlockMeta,
@@ -1000,9 +1000,9 @@ func internalKeyPath(index uint32) waddrmgr.DerivationPath {
 // block range, scoped managers, and recovery state.
 func newFilterBlocksRequest(batch []wtxmgr.BlockMeta,
 	scopedMgrs map[waddrmgr.KeyScope]*waddrmgr.ScopedKeyManager,
-	recoveryState *RecoveryState) *chain.FilterBlocksRequest {
+	recoveryState *RecoveryState) *btcclient.FilterBlocksRequest {
 
-	filterReq := &chain.FilterBlocksRequest{
+	filterReq := &btcclient.FilterBlocksRequest{
 		Blocks:           batch,
 		ExternalAddrs:    make(map[waddrmgr.ScopedIndex]btcutil.Address),
 		InternalAddrs:    make(map[waddrmgr.ScopedIndex]btcutil.Address),
@@ -1036,7 +1036,7 @@ func newFilterBlocksRequest(batch []wtxmgr.BlockMeta,
 // found on chain, and advances the state of all relevant derivation paths to
 // match the highest found child index for each branch.
 func extendFoundAddresses(ns walletdb.ReadWriteBucket,
-	filterResp *chain.FilterBlocksResponse,
+	filterResp *btcclient.FilterBlocksResponse,
 	scopedMgrs map[waddrmgr.KeyScope]*waddrmgr.ScopedKeyManager,
 	recoveryState *RecoveryState) error {
 
@@ -1131,7 +1131,7 @@ func extendFoundAddresses(ns walletdb.ReadWriteBucket,
 // logFilterBlocksResp provides useful logging information when filtering
 // succeeded in finding relevant transactions.
 func logFilterBlocksResp(block wtxmgr.BlockMeta,
-	resp *chain.FilterBlocksResponse) {
+	resp *btcclient.FilterBlocksResponse) {
 
 	// Log the number of external addresses found in this block.
 	var nFoundExternal int
@@ -2316,7 +2316,7 @@ func (w *Wallet) GetTransactions(startBlock, endBlock *BlockIdentifier,
 				return nil, errors.New("no chain server client")
 			}
 			switch client := chainClient.(type) {
-			case *chain.RPCClient:
+			case *btcclient.RPCClient:
 				startHeader, err := client.GetBlockHeaderVerbose(
 					startBlock.hash,
 				)
@@ -2324,13 +2324,13 @@ func (w *Wallet) GetTransactions(startBlock, endBlock *BlockIdentifier,
 					return nil, err
 				}
 				start = startHeader.Height
-			case *chain.BitcoindClient:
+			case *btcclient.BitcoindClient:
 				var err error
 				start, err = client.GetBlockHeight(startBlock.hash)
 				if err != nil {
 					return nil, err
 				}
-			case *chain.NeutrinoClient:
+			case *btcclient.NeutrinoClient:
 				var err error
 				start, err = client.GetBlockHeight(startBlock.hash)
 				if err != nil {
@@ -2347,7 +2347,7 @@ func (w *Wallet) GetTransactions(startBlock, endBlock *BlockIdentifier,
 				return nil, errors.New("no chain server client")
 			}
 			switch client := chainClient.(type) {
-			case *chain.RPCClient:
+			case *btcclient.RPCClient:
 				endHeader, err := client.GetBlockHeaderVerbose(
 					endBlock.hash,
 				)
@@ -2355,13 +2355,13 @@ func (w *Wallet) GetTransactions(startBlock, endBlock *BlockIdentifier,
 					return nil, err
 				}
 				end = endHeader.Height
-			case *chain.BitcoindClient:
+			case *btcclient.BitcoindClient:
 				var err error
 				start, err = client.GetBlockHeight(endBlock.hash)
 				if err != nil {
 					return nil, err
 				}
-			case *chain.NeutrinoClient:
+			case *btcclient.NeutrinoClient:
 				var err error
 				end, err = client.GetBlockHeight(endBlock.hash)
 				if err != nil {

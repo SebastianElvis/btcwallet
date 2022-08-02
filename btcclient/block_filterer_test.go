@@ -1,4 +1,4 @@
-package chain_test
+package btcclient_test
 
 import (
 	"reflect"
@@ -9,7 +9,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcwallet/chain"
+	"github.com/btcsuite/btcwallet/btcclient"
 )
 
 var Block100000 = wire.MsgBlock{
@@ -279,10 +279,10 @@ func TestBlockFiltererOneInOneOut(t *testing.T) {
 
 	// Construct a filter request, watching only for the outpoints above,
 	// and construct a block filterer.
-	req := &chain.FilterBlocksRequest{
+	req := &btcclient.FilterBlocksRequest{
 		WatchedOutPoints: watchedOutPoints,
 	}
-	blockFilterer := chain.NewBlockFilterer(&chaincfg.SimNetParams, req)
+	blockFilterer := btcclient.NewBlockFilterer(&chaincfg.SimNetParams, req)
 
 	// Filter block 100000, which should find matches for the watched
 	// outpoints.
@@ -302,7 +302,7 @@ func TestBlockFiltererOneInOneOut(t *testing.T) {
 
 // assertNumRelevantTxns checks that the set of relevant txns found in a block
 // filterer is of a specific size.
-func assertNumRelevantTxns(t *testing.T, bf *chain.BlockFilterer, size int) {
+func assertNumRelevantTxns(t *testing.T, bf *btcclient.BlockFilterer, size int) {
 	count := len(bf.RelevantTxns)
 	if count != size {
 		t.Fatalf("unexpected number of relevant txns: "+
@@ -312,7 +312,7 @@ func assertNumRelevantTxns(t *testing.T, bf *chain.BlockFilterer, size int) {
 
 // assertRelevantTxnsContains checks that the wantTx is found in the block
 // filterers set of relevant txns.
-func assertRelevantTxnsContains(t *testing.T, bf *chain.BlockFilterer, wantTx *wire.MsgTx) {
+func assertRelevantTxnsContains(t *testing.T, bf *btcclient.BlockFilterer, wantTx *wire.MsgTx) {
 	for _, relevantTx := range bf.RelevantTxns {
 		if reflect.DeepEqual(relevantTx, wantTx) {
 			return

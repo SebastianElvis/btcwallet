@@ -6,14 +6,14 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcwallet/chain"
+	"github.com/btcsuite/btcwallet/btcclient"
 	"github.com/btcsuite/btcwallet/waddrmgr"
 )
 
 type mockChainClient struct {
 }
 
-var _ chain.Interface = (*mockChainClient)(nil)
+var _ btcclient.Interface = (*mockChainClient)(nil)
 
 func (m *mockChainClient) Start() error {
 	return nil
@@ -45,8 +45,8 @@ func (m *mockChainClient) IsCurrent() bool {
 	return false
 }
 
-func (m *mockChainClient) FilterBlocks(*chain.FilterBlocksRequest) (
-	*chain.FilterBlocksResponse, error) {
+func (m *mockChainClient) FilterBlocks(*btcclient.FilterBlocksRequest) (
+	*btcclient.FilterBlocksResponse, error) {
 	return nil, nil
 }
 

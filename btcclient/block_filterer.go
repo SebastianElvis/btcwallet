@@ -1,4 +1,4 @@
-package chain
+package btcclient
 
 import (
 	"github.com/btcsuite/btcd/btcutil"

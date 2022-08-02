@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcjson"
-	"github.com/btcsuite/btcwallet/chain"
+	"github.com/btcsuite/btcwallet/btcclient"
 	"github.com/btcsuite/btcwallet/wallet"
 	"github.com/btcsuite/websocket"
 )
@@ -60,7 +60,7 @@ type Server struct {
 	httpServer   http.Server
 	wallet       *wallet.Wallet
 	walletLoader *wallet.Loader
-	chainClient  chain.Interface
+	chainClient  btcclient.Interface
 	handlerMu    sync.Mutex
 
 	listeners []net.Listener
@@ -256,7 +256,7 @@ func (s *Server) Stop() {
 // functional bitcoin wallet RPC server.  This can be called to enable RPC
 // passthrough even before a loaded wallet is set, but the wallet's RPC client
 // is preferred.
-func (s *Server) SetChainServer(chainClient chain.Interface) {
+func (s *Server) SetChainServer(chainClient btcclient.Interface) {
 	s.handlerMu.Lock()
 	s.chainClient = chainClient
 	s.handlerMu.Unlock()

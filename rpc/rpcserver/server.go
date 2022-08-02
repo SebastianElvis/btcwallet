@@ -32,7 +32,7 @@ import (
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcwallet/chain"
+	"github.com/btcsuite/btcwallet/btcclient"
 	"github.com/btcsuite/btcwallet/internal/cfgutil"
 	"github.com/btcsuite/btcwallet/internal/zero"
 	"github.com/btcsuite/btcwallet/netparams"
@@ -113,7 +113,7 @@ type walletServer struct {
 type loaderServer struct {
 	loader    *wallet.Loader
 	activeNet *netparams.Params
-	rpcClient *chain.RPCClient
+	rpcClient *btcclient.RPCClient
 	mu        sync.Mutex
 }
 
@@ -783,7 +783,7 @@ func (s *loaderServer) StartConsensusRpc(ctx context.Context, // nolint:golint
 			"wallet is loaded and already synchronizing")
 	}
 
-	rpcClient, err := chain.NewRPCClient(s.activeNet.Params, networkAddress, req.Username,
+	rpcClient, err := btcclient.NewRPCClient(s.activeNet.Params, networkAddress, req.Username,
 		string(req.Password), req.Certificate, len(req.Certificate) == 0, 1)
 	if err != nil {
 		return nil, translateError(err)

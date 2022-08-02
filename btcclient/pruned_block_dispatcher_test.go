@@ -1,4 +1,4 @@
-package chain
+package btcclient
 
 import (
 	"encoding/binary"
